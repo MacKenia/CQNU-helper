@@ -147,4 +147,8 @@ class LoginIntoCqnu:
         """
         r = requests.get(url=self.__url_new_logout__, params=self.__url_new_logout__, headers=self.headers_list[self.old][self.dev])
         return r.status_code
-        
+
+if __name__ == "__main__":
+    lq = LoginIntoCqnu("20200xxxxxxxx","xxxxxxx")
+    r = lq.login()
+    print(r)
