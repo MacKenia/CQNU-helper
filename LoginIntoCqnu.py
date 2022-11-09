@@ -105,18 +105,18 @@ class LoginIntoCqnu:
 
     def __process__(self) -> None:
         self.__data_old__["DDDDD"] = ",0," + self.__user__ + "@telecom"
-        self.__data_old__["upass"] = self.passwd
+        self.__data_old__["upass"] = self.__passwd__
 
-        self.__data_new_login__["user_account"] = "," + str(self.__dev) +"," +  self.__user__ + "@telecom"
-        self.__data_new_login__["user_password"] = self.passwd
-        self.__data_new_login__["terminal_type"] = self.dev
+        self.__data_new_login__["user_account"] = "," + str(self.__dev__) +"," +  self.__user__ + "@telecom"
+        self.__data_new_login__["user_password"] = self.__passwd__
+        self.__data_new_login__["terminal_type"] = self.__dev__
 
         if self.__dev__ == self.PC:
-            self.__data_new_login__["ua_version"] = self.ua_pc
-            self.__data_new_login__["ua_agent"] = "Mozilla/" + self.ua_pc
+            self.__data_new_login__["ua_version"] = self.__ua_pc__
+            self.__data_new_login__["ua_agent"] = "Mozilla/" + self.__ua_pc__
         else:
-            self.__data_new_login__["ua_version"] = self.ua_ph
-            self.__data_new_login__["ua_agent"] = "Mozilla/" + self.ua_ph
+            self.__data_new_login__["ua_version"] = self.__ua_ph__
+            self.__data_new_login__["ua_agent"] = "Mozilla/" + self.__ua_ph__
 
         self.__data_new_logout__["user_account"] = self.__user__ + "@telecom"
 
@@ -129,7 +129,7 @@ class LoginIntoCqnu:
             self.__dev__ = device
         if identity != self.STU:
             self.__id__ = identity
-        if old != self.old:
+        if old != self.__old__:
             self.__old__ = old
 
         self.__process__()
@@ -137,7 +137,7 @@ class LoginIntoCqnu:
         if self.__old__:
             r = requests.post(url=self.__url_old__, data=self.__data_old__, headers=self.__headers_list__[self.__old__][self.__dev__])
         else:
-            r = requests.get(url=self.__url_new_login__, params=self.__data_new_login__, headers=self.headers_list[self.old][self.dev])
+            r = requests.get(url=self.__url_new_login__, params=self.__data_new_login__, headers=self.__headers_list__[self.__old__][self.__dev__])
         return r.status_code
 
 
@@ -145,7 +145,7 @@ class LoginIntoCqnu:
         """
         This function is used to send logout message to center server. 
         """
-        r = requests.get(url=self.__url_new_logout__, params=self.__url_new_logout__, headers=self.headers_list[self.old][self.dev])
+        r = requests.get(url=self.__url_new_logout__, params=self.__url_new_logout__, headers=self.__headers_list__[self.__old__][self.__dev__])
         return r.status_code
 
 if __name__ == "__main__":
