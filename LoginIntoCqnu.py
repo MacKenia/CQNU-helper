@@ -4,8 +4,7 @@ class LoginIntoCqnu:
     PC = 0
     PHONE = 1
 
-    def __init__(self, user:str, passwd:str, device:int=PC, identity:int=STU, old:bool=False) -> None:
-        self.__id__ = identity
+    def __init__(self, user:str, passwd:str, device:int=PC, old:bool=False) -> None:
         self.__dev__ = device
         self.__old__ = False
         self.__user__ = user
