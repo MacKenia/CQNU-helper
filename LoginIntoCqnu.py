@@ -3,8 +3,6 @@ import requests
 class LoginIntoCqnu:
     PC = 0
     PHONE = 1
-    TEA = 0
-    STU = 1
 
     def __init__(self, user:str, passwd:str, device:int=PC, identity:int=STU, old:bool=False) -> None:
         self.__id__ = identity
@@ -121,14 +119,12 @@ class LoginIntoCqnu:
         self.__data_new_logout__["user_account"] = self.__user__ + "@telecom"
 
 
-    def login(self, device:int=PC, identity:int=STU, old:bool=False) -> int:
+    def login(self, device:int=PC, old:bool=False) -> int:
         """
         This function is used to send login massage to center login authorization server.
         """
         if device != self.PC:
             self.__dev__ = device
-        if identity != self.STU:
-            self.__id__ = identity
         if old != self.__old__:
             self.__old__ = old
 

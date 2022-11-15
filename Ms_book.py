@@ -10,7 +10,6 @@ pip install requests beautifulsoup4 pyDes Pillow
 date 格式 yyyy-mm-dd 示例 2022-05-10
 """
 import base64 as bs
-import ddddocr as ocr
 import json, re, time
 from PIL import Image
 from io import BytesIO
