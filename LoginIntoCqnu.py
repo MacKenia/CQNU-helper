@@ -118,14 +118,17 @@ class LoginIntoCqnu:
         self.__data_new_logout__["user_account"] = self.__user__ + "@telecom"
 
 
-    def login(self, device:int=PC, old:bool=False) -> int:
+    def login(self, **kwargs) -> int:
         """
         This function is used to send login massage to center login authorization server.
+        :param device: Device Type
+        :param old: Old Autentication mode
         """
-        if device != self.PC:
-            self.__dev__ = device
-        if old != self.__old__:
-            self.__old__ = old
+        print(kwargs)
+        if "device" in kwargs:
+            self.__dev__ = kwargs["device"]
+        if "old" in kwargs:
+            self.__old__ = kwargs["old"]
 
         self.__process__()
 
