@@ -10,7 +10,7 @@ pip install requests beautifulsoup4 pyDes Pillow
 date 格式 yyyy-mm-dd 示例 2022-05-10
 """
 import base64 as bs
-import json, re, time
+import json, re, time, os
 from PIL import Image
 from io import BytesIO
 
@@ -220,9 +220,9 @@ class BookYourDream:
         if not r:
             print("网络错误")
             return
-        print(r.text)
+        return r
 
-    def book_time(self, room:str, date:str, time:str):
+    def book_time(self, room:str, date:str, times:str):
         param = {
             "type": "day",
             "s_dates": date,
@@ -238,13 +238,16 @@ class BookYourDream:
                 if e == 3:
                     print("失败")
                     return
-                print("出现错误，正在重试")
+                print("出现错误，正在重试", end="\r")
                 return
             for i in r.json()["object"]:
-                if i["TIME_NO"] == time:
+                if i["TIME_NO"] == times:
                     self.book({str(i['ID']): "1"})
-                    print("\n预定成功")
-                    return
+                    if r.json()["message"]:
+                        print("出错重试中...", end="\r")
+                    else:
+                        print("\n预定成功")
+                        return
             t += 1
             time.sleep(1)
 
@@ -290,7 +293,8 @@ class BookYourDream:
 
     def cancel_all(self):
         """
-        Unstable now
+        已知问题：
+            后端数据库已取消，前端不同步
         """
         for i in self.booked():
             r = self.main_se.get(str(self.order_url + i["orderid"]))
@@ -310,13 +314,20 @@ class BookYourDream:
 
     def main(self):
         room = [self.D_ONE, self.D_TWO, self.D_THREE]
-        print("请先登录")
-        user = input("账号:")
-        passwd = input("密码:")
+        try:
+            with open("login.info","r") as f:
+                login_info = json.load(f)
+                user = login_info["ID"]
+                passwd = login_info["passwd"]
+        except :
+            print("请先登录")
+            user = input("账号:")
+            passwd = input("密码:")
+
         if not self.login(user, passwd):
             return
         while True:
-            choice = int(input("\n1.预定\n2.取消\n3.查询\n4.退出\n请输入:"))
+            choice = int(input("\n1.预定\n2.取消\n3.查询\n4.退出\n5.自动登陆\n请输入:"))
             if choice == 1:
                 choice = int(input("\n1.日期预定\n2.时间预定\n3.位置预定\n请输入:"))
                 cRoom = int(input("1. 梦一厅\n2. 梦二厅\n3. 梦三厅\n场地:"))
@@ -359,6 +370,18 @@ class BookYourDream:
                         f"{i['stockDate']} 的 {i['servicenames']} 的 {i['remark1']} 时间段的 {i['remark']}")
             elif choice == 4:
                 return
+            elif choice == 5:
+                login_info = {
+                    "ID":user,
+                    "passwd":passwd
+                }
+                if os.path.exists("login.info"):
+                    os.remove("login.info")
+                    print("关闭自动登陆")
+                else:
+                    with open("login.info", "w") as f:
+                        f.write(json.dumps(login_info))
+                    print("开启自动登陆")
             else:
                 print("输入错误")
                 continue
