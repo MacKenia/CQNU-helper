@@ -1,0 +1,5 @@
+ddddocr
+Pillow
+pyDes
+requests
+beautifulsoup4
