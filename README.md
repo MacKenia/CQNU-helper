@@ -6,6 +6,11 @@ This repository consist of a series of tools that help you enjoy CQNU life bette
 
 You can use this script to login to your campus network or use it to automatic jobs.
 
+features:
+
+- Ignore login type
+- Add as automated tasks
+
 You can add some python code and made it to connect network when your computer start up.
 
 ## Ms_book.py
@@ -20,3 +25,9 @@ This script include these features:
 - overlook system ban
 - add to you automatic system
 - reserve discontinuous time periods
+- generate .ics and send to your phone
+- auto login in
+
+bugs:
+
+- Canceled orders won't show on website but it actually canceled from backend.

@@ -3,3 +3,5 @@ Pillow
 pyDes
 requests
 beautifulsoup4
+icalendar
+qrcode

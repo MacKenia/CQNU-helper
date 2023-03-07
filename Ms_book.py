@@ -17,7 +17,29 @@ from io import BytesIO
 import bs4 as Bss
 import requests as rts
 from pyDes import ECB, PAD_PKCS5, des
+from datetime import datetime
+from icalendar import Calendar, Event
+import pyqrcode as pyqr
+import socket
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
+class MyHandler(BaseHTTPRequestHandler):
+    def __init__(self, file, *args) -> None:
+        self.file = file
+        BaseHTTPRequestHandler.__init__(self, *args)
+        print("路径", file, "...")
+
+    def do_GET(self):
+        with open(self.file, 'rb') as f:
+            file_contents = f.read()
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/calender')
+        self.send_header('Content-Disposition', f'attachment; filename="{self.file}"')
+        self.end_headers()
+
+        self.wfile.write(file_contents)
+        return
 
 class BookYourDream:
     def __init__(self):
@@ -27,6 +49,8 @@ class BookYourDream:
 
         self.TIME_TABLE = ["07:30-09:59", "10:00-11:59", "12:00-13:59",
                            "14:00-15:59", "16:00-17:59", "18:00-19:59", "20:00-23:30"]
+
+        self.reserved = []
 
         self.main_se = rts.session()
 
@@ -187,6 +211,9 @@ class BookYourDream:
                 c = input("是否预定?(y/n)").strip()
             if allday or c == "y" or c == "Y" or c == "":
                 reserve[str(i['ID'])] = "1"
+        self.reserved.append(date)
+        print(self.reserved)
+        return {}
         return reserve
 
     def booked(self):
@@ -312,6 +339,79 @@ class BookYourDream:
             print(f"已取消 {i['stockDate']} 的 {i['servicenames']} 的 {i['remark1']} 时间段的 {i['remark']}")
         print(f"已取消 {len(self.booked())} 个订单")
 
+    def ical_gen(self):
+        self.reserve = []
+        booked = self.booked()
+
+        if not self.reserved:
+            inp = input("您此次还没有任何预定，您给可以从曾经的订单中生成.ics文件（y/n）：").strip()
+            if inp == "" or inp == "y":
+                for i in booked:
+                    if not i["stockDate"] in self.reserved:
+                        t = input(f"\n{i['stockDate']} 的 {i['servicenames']} 的 {i['remark1']} 时间段的 {i['remark']}\n添加到日程吗(y/n)：").strip()
+                        if t == "y" or not t:
+                            self.reserved.append(i['stockDate'])
+            else:
+                return
+        for i in booked:
+            if i["stockDate"] in self.reserved:
+                self.reserved.remove(i["stockDate"])
+                remark = i["remark1"].split(",")
+                for j in remark:
+                    self.reserve.append({
+                        "title": "梦厅预定@Ms_book",
+                        "location": f"{i['servicenames']} {i['remark']}",
+                        "start_time": f"{i['stockDate']} {j[:5]}",
+                        "end_time": f"{i['stockDate']} {j[6:]}"
+                    })
+
+        # 创建日历对象
+        cal = Calendar()
+
+        # 遍历日程信息，创建事件对象
+        for item in self.reserve:
+            event = Event()
+            event.add('summary', item['title'])
+            event.add('location', item['location'])
+            event.add('dtstart', datetime.fromisoformat(item['start_time']))
+            event.add('dtend', datetime.fromisoformat(item['end_time']))
+            cal.add_component(event)
+
+        filename = f'{self.reserve[0]["start_time"][:10]}'
+
+        # 将日历写入文件
+        with open(f'{filename}.ics', 'wb') as f:
+            f.write(cal.to_ical())
+        t = input("发送到手机(y/n)?").strip()
+        if t == "" or t == "y":
+            self.send_to_phone(f'{filename}.ics')
+
+    def send_to_phone(self, path):
+        ip_address = self.get_host_ip()
+        qr = pyqr.create(f"http://{ip_address}:8080")
+        print(qr.terminal())
+        print(f'http://{ip_address}:8080')
+        print('请确保手机与电脑处于统一局域网,校园网亦可')
+        print('按<C-c>来关闭 HTTP 服务器...')
+
+        httpd = HTTPServer(('0.0.0.0', 8080), lambda x, y, z: MyHandler(path ,x, y, z))
+        httpd.serve_forever()
+        try:
+            httpd.serve_forever()
+        except:
+            print('正在关闭 HTTP 服务器...')
+            httpd.shutdown()
+
+    def get_host_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+        finally:
+            s.close()
+
+        return ip
+
     def main(self):
         room = [self.D_ONE, self.D_TWO, self.D_THREE]
         try:
@@ -327,7 +427,7 @@ class BookYourDream:
         if not self.login(user, passwd):
             return
         while True:
-            choice = int(input("\n1.预定\n2.取消\n3.查询\n4.退出\n5.自动登陆\n请输入:"))
+            choice = int(input("\n1.预定\n2.取消\n3.查询\n4.退出\n5.自动登陆\n6.生成.ics\n请输入:"))
             if choice == 1:
                 choice = int(input("\n1.日期预定\n2.时间预定\n3.位置预定\n请输入:"))
                 cRoom = int(input("1. 梦一厅\n2. 梦二厅\n3. 梦三厅\n场地:"))
@@ -382,6 +482,8 @@ class BookYourDream:
                     with open("login.info", "w") as f:
                         f.write(json.dumps(login_info))
                     print("开启自动登陆")
+            elif choice == 6:
+                self.ical_gen()
             else:
                 print("输入错误")
                 continue
