@@ -212,8 +212,6 @@ class BookYourDream:
             if allday or c == "y" or c == "Y" or c == "":
                 reserve[str(i['ID'])] = "1"
         self.reserved.append(date)
-        print(self.reserved)
-        return {}
         return reserve
 
     def booked(self):
