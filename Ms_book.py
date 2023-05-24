@@ -475,8 +475,9 @@ class BookYourDream:
                         self.response = self.book(reserve)
 
                     if self.response.status_code == 200:
+                        self.booked(1,False)
                         res = self.booked(1,False)[0]
-                        print(f"预定成功：\n时间: {res['stockDate']} \n地点: {res['servicenames']} \n时间: {res['remark1']} \n座位: {res['remark']}\n\n")
+                        print(f"\n预定成功: \n时间: {res['stockDate']} \n地点: {res['servicenames']} \n时间: {res['remark1']} \n座位: {res['remark']}\n")
 
                 elif choice == 2:
                     for i, j in enumerate(self.TIME_TABLE):
