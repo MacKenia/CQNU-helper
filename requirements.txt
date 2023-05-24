@@ -4,4 +4,4 @@ pyDes
 requests
 beautifulsoup4
 icalendar
-qrcode
+pyqrcode

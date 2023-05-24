@@ -17,6 +17,8 @@ You can add some python code and made it to connect network when your computer s
 
 > extend form 07's script
 
+⚠️ Only work with Python < 3.11
+
 This script can help you book the dream rooms located at library without limitation such as banned by the official system.
 
 This script include these features:
