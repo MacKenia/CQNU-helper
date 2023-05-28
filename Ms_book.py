@@ -22,6 +22,7 @@ from icalendar import Calendar, Event
 import pyqrcode as pyqr
 import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from websockets.sync.client import connect
 
 class MyHandler(BaseHTTPRequestHandler):
     def __init__(self, file, *args) -> None:
@@ -54,6 +55,8 @@ class BookYourDream:
 
         self.main_se = rts.session()
 
+        self.table_patten = re.compile(r"<dt>(\d{2}:\d{2}-\d{2}:\d{2})[^0-9]+(\d+)排(\d)座<\/dt>")
+
         self.index_url = "http://202.202.209.15:8081/index.html"
 
         self.ver_image = "https://csxrz.cqnu.edu.cn:443/cas/verCode?random=="
@@ -74,6 +77,8 @@ class BookYourDream:
         self.cancel_detail_url = "http://202.202.209.15:8081/order/delorderdetail.html"
 
         self.order_url = "http://202.202.209.15:8081/order/myorder_view.html?id="
+        
+        self.success_page = "http://202.202.209.15:8081/order/successpage.html"
 
         self.normal_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"
@@ -127,10 +132,10 @@ class BookYourDream:
                 "type": "1001",
                 "Authorization": "APPCODE <your token>"
             }
-            url = "https://302307.market.alicloudapi.com/ocr/captcha"
+            url = "https://302307.market.alicloudapi.com/ocr/gaptcha"
             res = rts.post(url, headers=headers)
             if res and res.json()["code"] == 0:
-                return res.json()["data"]["captcha"]
+                return res.json()["data"]["gaptcha"]
             else:
                 print(res.headers["X-Ca-Error-Message"])
                 print("can't decode through network API switch to the last decode method")
@@ -182,22 +187,12 @@ class BookYourDream:
         # print(login_res.text)
         if login_res.content.decode('utf-8').find("梦厅") != login_res.content.decode("utf-8").find("场地"):
             print("登录成功")
+            login_res = Bss.BeautifulSoup(login_res.text, "html.parser")
+            self.user_no = login_res.select("#userno")[0].get("value")
             return True
         else:
             print("登录失败")
             return False
-
-    def just_inquire(self, room:str, date:str) -> list:
-        params = {
-            "type": "day",
-            "s_dates": time.strftime("%Y-%m-%d", date),
-            "serviceid": room
-        }
-        r = self.main_se.get(self.inquire_url, params=params)
-        if not r:
-            print("网络错误")
-            return []
-        return r.json()["object"]
 
     def parse_num(self, raw:str) -> list:
         re = []
@@ -212,6 +207,18 @@ class BookYourDream:
                     re.append(int(i[j]))
         return sorted(re)
 
+    def just_inquire(self, room:str, date:str) -> list:
+        params = {
+            "type": "day",
+            "s_dates": time.strftime("%Y-%m-%d", date),
+            "serviceid": room
+        }
+        r = self.main_se.get(self.inquire_url, params=params)
+        if not r.json()["object"]:
+            print("网络错误")
+            return []
+        return r.json()["object"]
+
 
     def inquire(self, room:str, date:str, allday:str=False):
         params = {
@@ -220,7 +227,7 @@ class BookYourDream:
             "serviceid": room
         }
         r = self.main_se.get(self.inquire_url, params=params)
-        if not r:
+        if not r.json()["object"]:
             print("网络错误")
             return
         for index, i in enumerate(r.json()["object"]):
@@ -246,7 +253,7 @@ class BookYourDream:
         """
         booked_list = []
         r = self.main_se.get(self.search_url, headers=self.normal_headers, params={'rows': rows})
-        if not r:
+        if not r.json():
             print("网络错误")
             return
         for i in r.json():
@@ -261,19 +268,22 @@ class BookYourDream:
                                 })
         return booked_list
 
-    def book(self, table:str) -> rts.Response:
-        data = {
-            "param": json.dumps({
-                "stock": table,
-                "extend": {}
-            }),
-            "json": True
-        }
-        r = self.main_se.post(self.book_url, data=data)
-        if not r:
-            print("网络错误")
-            return
-        return r
+    def book(self, table:dict) -> rts.Response:
+        with connect('ws://202.202.209.15:8081/websocket/') as ws:
+            ws.send(f"createOrder{self.user_no}")
+            data = {
+                "param": json.dumps({
+                    "stock": table,
+                    "extend": {}
+                }),
+                "json": True
+            }
+            r = self.main_se.post(self.book_url, data=data)
+            if not r:
+                print("网络错误")
+                return
+            self.ws_response = ws.recv()
+            return r
 
     def book_time(self, room:str, date:str, times:str):
         param = {
@@ -304,70 +314,95 @@ class BookYourDream:
             t += 1
             time.sleep(1)
 
-    def book_table(self, room:str, date:str, place:str, b_time:list=None):
-        param = {
-            "type": "day",
-            "s_dates": time.strftime("%Y-%m-%d", date),
-            "serviceid": room
-        }
-        table_name = re.compile(r"(\d+)排(\d)座")
-        t = 1
-        e = 1
-        suc = 0
-        while True:
-            print(f"第{t}次尝试预定", end="\r")
-            r = self.main_se.get(self.inquire_url, params=param)
-            if not r:
-                if e == 3:
-                    print("失败")
-                    return
-                print("出现错误，正在重试")
-                e += 1
-                continue
-            for i in r.json()["object"]:
-                suc = 0
-                if b_time != None and i["TIME_NO"] == b_time:
-                    if i["SURPLUS"] == 401-place:
-                        self.book({str(i['ID']): "1"})
-                        print(f"\n{i['TIME_NO']}预定成功")
-                        return
-                    elif i["SURPLUS"] < 401-place:
-                        print("剩余数量不足")
-                        return
-                elif not b_time:
-                    if i["SURPLUS"] == 401-place:
-                        self.book({str(i['ID']): "1"})
-                        suc += 1
-                        print(f"\n{i['TIME_NO']} 预定成功")
-                        if suc == 7:
-                            print("预定完成")
-                            return
-            t += 1
-            time.sleep(1)
+    def check_after_book(self,**kwargs):
+        if kwargs.get("table"):
+            table:str = kwargs["table"]
+        if kwargs.get("times"):
+            times:list = kwargs["times"]
+        
+        order_id = json.loads(self.ws_response)['object']['orderid']
+        self.response = self.main_se.get(self.success_page, params={'id': order_id}).text
+        self.re_result = self.table_patten.findall(self.response)
+        print(self.re_result[0])
+        if table:
+            if table == f"{self.re_result[0][1]:0>2}{self.re_result[0][2]}":
+                return True
+        elif times:
+            """
+            不稳定
+            """
+            time_list_re = [ i[0] for i in self.re_result ]
+            for i in times:
+                if i not in time_list_re:
+                    return False
+            return True
+        return False
 
-    def cancel(self, cancel_list:list):
+    def book_table(self, room:str, date:str, reserve:dict, table:str):
+        t = 1
+        sleep_gap = 1
+        while True:
+            self.book(reserve)
+            if self.check_after_book(table=table):
+                print("预定成功!")
+                return True
+            else:
+                p = int(table[0:2]) - int(self.re_result[0][1])
+                z = int(table[-1]) - int(self.re_result[0][2])
+                if z < 0:
+                    z += 8
+                    p -= 1
+                print(f"当前预定到的座位为{self.re_result[0][1]}排{self.re_result[0][2]}座")
+                print(f"与目标座位距离{p}排{z}座")
+
+                if p < 0:
+                    print(f"已经被人预定了.")
+                    return False
+                elif p < 1:
+                    sleep_gap = 1
+                    print(f"距离很近, 更改下一次预定等待时间为{sleep_gap}秒")
+                elif p < 2:
+                    sleep_gap = 10
+                    print(f"距离较近, 更改下一次预定等待时间为{sleep_gap}秒")
+                else:
+                    sleep_gap = 60
+                    print(f"距离较远, 更改下一次预定等待时间为{sleep_gap}秒")
+                print("取消该座位中...")
+                self.cancel_order(json.loads(self.ws_response)['object']['orderid'])
+                print("取消完成")
+            print(f"第{t}次尝试预定失败，下一次预定为{sleep_gap}秒后\n")
+            t += 1
+            time.sleep(sleep_gap)
+
+    def cancel_order(self, orderid:str):
         """
         已知问题:
             后端数据库已取消，前端不同步
         """
-        for index, i in enumerate(self.booked()):
+        r = self.main_se.get(str(self.order_url + orderid))
+        if not r:
+            print("网络错误")
+            return False
+        rr = re.findall("onclick=\"cencelDetail\('(\d*)'\)\"", r.text)
+        rr.append(orderid)
+        for j in rr:
+            data = {
+                "orderid": j,
+                "json": True
+            }
+            self.main_se.post(self.cancel_detail_url, data=data,
+                            headers=self.normal_headers)
+        return True
+
+    def cancel(self, cancel_list:list):
+        for index, i in enumerate(self.booked(len(cancel_list), False)):
             if index not in cancel_list:
                 continue
-            r = self.main_se.get(str(self.order_url + i["orderid"]))
-            if not r:
+
+            if not self.cancel_order(i["orderid"]):
                 continue
-            rr = re.findall("onclick=\"cencelDetail\('(\d*)'\)\"", r.text)
-            for j in rr:
-                # print(j)
-                data = {
-                    "orderid": j,
-                    "json": True
-                }
-                self.main_se.post(self.cancel_detail_url, data=data,
-                                headers=self.normal_headers)
 
             print(f"\n已取消:\n日期: {i['stockDate']} \n地点: {i['servicenames']} \n时间: {i['remark1']} \n座位: {i['remark']}\n")
-            # print(f"已取消 {i['stockDate']} 的 {i['servicenames']} 的 {i['remark1']} 时间段的 {i['remark']}")
 
     def ical_gen(self):
         self.reserve = []
@@ -459,25 +494,40 @@ class BookYourDream:
         while True:
             choice = int(input("\n1.预定座位\n2.取消订单\n3.查询订单\n4.退出\n5.自动登陆开关\n6.生成.ics\n请输入:"))
             if choice == 1:
-                choice = int(input("\n1.日期预定\n2.时间预定\n3.位置预定\n请输入:"))
-                cRoom = int(input("1. 梦一厅\n2. 梦二厅\n3. 梦三厅\n场地:"))
-                _date = input("日期(示例: yyyymmdd 或 一个数字表示多少天后):")
-                if _date == "":
-                    date = time.localtime()
-                elif len(_date) < 6:
-                    date = time.localtime()
-                    date = time.strptime(f"{date.tm_year}{date.tm_mon}{date.tm_mday+int(_date)}", "%Y%m%d")
-                else:
-                    date = time.strptime(_date, "%Y%m%d")
+                while True:
+                    choice = input("\n1.日期预定\n2.时间预定\n3.位置预定\n请输入:")
+                    try:
+                        choice = int(choice)
+                        break
+                    except:
+                        print("输入错误,请重新输入\n")
+                while True:
+                    cRoom = input("1. 梦一厅\n2. 梦二厅\n3. 梦三厅\n场地:")
+                    try:
+                        cRoom = int(cRoom)
+                        break
+                    except:
+                        print("输入错误,请重新输入\n")
+                while True:
+                    _date = input("日期(示例: yyyymmdd 或 一个数字表示多少天后):")
+                    try:
+                        if _date == "":
+                            date = time.localtime()
+                        elif len(_date) < 6:
+                            date = time.localtime()
+                            date = time.strptime(f"{date.tm_year}{date.tm_mon}{date.tm_mday+int(_date)}", "%Y%m%d")
+                        else:
+                            date = time.strptime(_date, "%Y%m%d")
+                        break
+                    except:
+                        print("输入错误,请重新输入\n")
                 if choice == 1:
                     reserve = self.inquire(room[cRoom-1], date)
                     if reserve:
                         self.response = self.book(reserve)
-
-                    if self.response.status_code == 200:
-                        self.booked(1,False)
-                        res = self.booked(1,False)[0]
-                        print(f"\n预定成功: \n时间: {res['stockDate']} \n地点: {res['servicenames']} \n时间: {res['remark1']} \n座位: {res['remark']}\n")
+                        self.response = self.main_se.get(self.success_page, params={"id": json.loads(self.ws_response)['object']['orderid']})
+                        self.table = self.table_patten.findall(self.response.text)[0]
+                        print(f"\n预定成功:\n座位号: {self.table[1]:0>2}排{self.table[2]}座\n")
 
                 elif choice == 2:
                     for i, j in enumerate(self.TIME_TABLE):
@@ -486,22 +536,15 @@ class BookYourDream:
                     self.book_time(room[cRoom-1], date,
                                    self.TIME_TABLE[int(s_time)-1])
                 elif choice == 3:
-                    res = self.inquire(room[cRoom-1], date)
-                    for index, i in enumerate(res):
-                        print(f"{index}: {i['TIME_NO']}")
-                    
-                    reserve = {}
+                    reserve = self.inquire(room[cRoom-1], date)
 
-                    allday = self.yesorno("需要预定全天吗?(y/n):")
-                    if not allday:
-                        rs = input("请输入希望预定的时间段(示例:01 2 3-4 6-7 ): ")
-                        rs = self.parse_num(rs)
+                    while True:
+                        place = input("位置(aab):").strip()
+                        if len(place) == 3 and 0 < int(place[-1]) < 9:
+                            break
+                        else:
+                            print("输入有误,请重新输入")
 
-                    for index, i in enumerate(res):
-                        if allday or index in rs:
-                            reserve[str(i['ID'])] = "1"
-
-                    place = int(input("位置(aab):"))
                     self.book_table(
                             room[cRoom-1], date, reserve, place)
                 else:
