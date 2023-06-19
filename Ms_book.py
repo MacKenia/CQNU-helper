@@ -50,7 +50,7 @@ class BookYourDream:
 
         self.TIME_TABLE = ["07:30-09:59", "10:00-11:59", "12:00-13:59",
                            "14:00-15:59", "16:00-17:59", "18:00-19:59", "20:00-23:30"]
-
+        self.week_name = ["星期天", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
         self.reserved = []
 
         self.main_se = rts.session()
@@ -244,7 +244,7 @@ class BookYourDream:
             if allday or index in rs:
                 reserve[str(i['ID'])] = "1"
 
-        self.reserved.append(date)
+        self.reserved.append(time.strftime("%Y-%m-%d", date))
         return reserve
 
     def booked(self, rows:int=3, get_expired:bool=True):
@@ -444,7 +444,7 @@ class BookYourDream:
         filename = f'{self.reserve[0]["start_time"][:10]}'
 
         # 将日历写入文件
-        with open(f'{filename}.ics', 'wb') as f:
+        with open(f'{filename}_{time.localtime().tm_sec}.ics', 'wb') as f:
             f.write(cal.to_ical())
         t = input("发送到手机(y/n)?").strip()
         if t == "" or t == "y":
@@ -514,10 +514,10 @@ class BookYourDream:
                         if _date == "":
                             date = time.localtime()
                         elif len(_date) < 6:
-                            date = time.localtime()
-                            date = time.strptime(f"{date.tm_year}{date.tm_mon}{date.tm_mday+int(_date)}", "%Y%m%d")
+                            date = time.localtime(time.time()+int(_date)*24*60*60)
                         else:
                             date = time.strptime(_date, "%Y%m%d")
+                        print(f"\n你选择的日期: {time.strftime('%Y-%m-%d', date)} {self.week_name[int(time.strftime('%w', date))]}")
                         break
                     except:
                         print("输入错误,请重新输入\n")
