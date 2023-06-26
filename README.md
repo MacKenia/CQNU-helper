@@ -13,6 +13,17 @@ features:
 
 You can add some python code and made it to connect network when your computer start up.
 
+## LoginIntoCqnu.sh
+
+You can use this script to login to your campus network or use it to automatic jobs.
+
+features:
+
+- Ignore login type
+- Add as automated tasks
+
+You can login without python in tiny linux system but you still need `curl` in your system.
+
 ## Ms_book.py
 
 > extend form 07's script
