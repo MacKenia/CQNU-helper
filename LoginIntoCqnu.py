@@ -1,4 +1,4 @@
-import requests
+import requests, re
 
 class LoginIntoCqnu:
     PC = 0
@@ -10,9 +10,6 @@ class LoginIntoCqnu:
         self.__user__ = user
         self.__passwd__ = passwd
 
-        self.__url_old_raw__ = "http://10.0.251.18:801/eportal/?c=ACSetting&a=Login&wlanacip=&lanacname=&redirect=&session=&vlanid=0&ssid=&port=&iTermType=1&protocol=http:&queryACIP=0"
-        self.__url_new_login_raw__ = "http://10.0.254.125:801/eportal/portal/login?callback=dr1011&login_method=1&user_account=,1,2020051615308@telecom&user_password=11243913&wlan_user_ip=10.252.33.117&wlan_user_ipv6=&wlan_user_mac=000000000000&wlan_ac_ip=&wlan_ac_name=&jsVersion=4.1.3&terminal_type=2&lang=zh-cn&v=5185&lang=zh"
-        self.__url_new_logout_raw__ = "http://10.0.254.125:801/eportal/portal/mac/unbind?callback=dr1003&user_account=&wlan_user_mac=000000000000&wlan_user_ip=184295797&jsVersion=4.1.3&v=5389&lang=zh"
         self.__url_old__ = "http://10.0.251.18:801/eportal/"
         self.__url_new_login__ = "http://10.0.254.125:801/eportal/portal/login"
         self.__url_new_logout__ = "http://10.0.254.125:801/eportal/portal/mac/unbind"
@@ -118,13 +115,12 @@ class LoginIntoCqnu:
         self.__data_new_logout__["user_account"] = self.__user__ + "@telecom"
 
 
-    def login(self, **kwargs) -> int:
+    def login(self, **kwargs) -> requests.Response:
         """
         This function is used to send login massage to center login authorization server.
         :param device: Device Type
         :param old: Old Autentication mode
         """
-        print(kwargs)
         if "device" in kwargs:
             self.__dev__ = kwargs["device"]
         if "old" in kwargs:
@@ -136,17 +132,29 @@ class LoginIntoCqnu:
             r = requests.post(url=self.__url_old__, data=self.__data_old__, headers=self.__headers_list__[self.__old__][self.__dev__])
         else:
             r = requests.get(url=self.__url_new_login__, params=self.__data_new_login__, headers=self.__headers_list__[self.__old__][self.__dev__])
-        return r.status_code
+        return r
 
 
-    def logout(self) -> int:
+    def logout(self) -> requests.Response:
         """
         This function is used to send logout message to center server. 
         """
         r = requests.get(url=self.__url_new_logout__, params=self.__url_new_logout__, headers=self.__headers_list__[self.__old__][self.__dev__])
-        return r.status_code
-
+        return r
+    
 if __name__ == "__main__":
-    lq = LoginIntoCqnu("20200xxxxxxxx","xxxxxxx")
-    r = lq.login()
-    print(r)
+    p_res_code = re.compile(r'"result":(\d),')
+    p_res_msg = re.compile(r'"msg":"(.*?)",')
+
+    lq = LoginIntoCqnu("20xxxxxxxxxxx","xxxxxx")
+    # r = lq.logout()
+    r = lq.login(device=lq.PHONE)
+
+    res_code = p_res_code.findall(r.text)[0]
+    res_msg = p_res_msg.findall(r.text)[0]
+
+    if res_code == '0':
+        print(f"\033[31m", end="")
+    else:
+        print(f"\033[32m", end="")
+    print(f"{res_msg}\033[0m")
