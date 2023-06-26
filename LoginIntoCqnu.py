@@ -5,6 +5,17 @@ class LoginIntoCqnu:
     PHONE = 1
 
     def __init__(self, user:str, passwd:str, device:int=PC, old:bool=False) -> None:
+        banner = r"""  ______   ______  __    __ __    __ 
+ /      \ /      \|  \  |  \  \  |  \
+|  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\ ▓▓\ | ▓▓ ▓▓  | ▓▓
+| ▓▓   \▓▓ ▓▓  | ▓▓ ▓▓▓\| ▓▓ ▓▓  | ▓▓
+| ▓▓     | ▓▓  | ▓▓ ▓▓▓▓\ ▓▓ ▓▓  | ▓▓
+| ▓▓   __| ▓▓ _| ▓▓ ▓▓\▓▓ ▓▓ ▓▓  | ▓▓
+| ▓▓__/  \ ▓▓/ \ ▓▓ ▓▓ \▓▓▓▓ ▓▓__/ ▓▓
+ \▓▓    ▓▓\▓▓ ▓▓ ▓▓ ▓▓  \▓▓▓\▓▓    ▓▓
+  \▓▓▓▓▓▓  \▓▓▓▓▓▓\\▓▓   \▓▓ \▓▓▓▓▓▓ 
+               \▓▓▓                   .edu.cn"""
+        print(banner)
         self.__dev__ = device
         self.__old__ = False
         self.__user__ = user
@@ -143,10 +154,10 @@ class LoginIntoCqnu:
         return r
     
 if __name__ == "__main__":
-    p_res_code = re.compile(r'"result":(\d),')
-    p_res_msg = re.compile(r'"msg":"(.*?)",')
+    p_res_code = re.compile(r'"result":(\d)')
+    p_res_msg = re.compile(r'"msg":"(.*?)"')
 
-    lq = LoginIntoCqnu("20xxxxxxxxxxx","xxxxxx")
+    lq = LoginIntoCqnu("202005161","1245678.a")
     # r = lq.logout()
     r = lq.login(device=lq.PHONE)
 
