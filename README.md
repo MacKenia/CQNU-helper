@@ -22,7 +22,7 @@ features:
 - Ignore login type
 - Add as automated tasks
 
-You can login without python in tiny linux system but you still need `curl` in your system.
+You can login without python in tiny linux system but you still need `curl` and `sed` in your system.
 
 ## Ms_book.py
 

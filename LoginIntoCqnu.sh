@@ -35,78 +35,53 @@ data_new_logout=(
 "lang=zh"
 )
 
-HEADER_PHONE_ACCEPT="*/*"
-HEADER_PHONE_ACCEPT_ENCODING="gzip, deflate"
-HEADER_PHONE_ACCEPT_LANGUAGE="zh-CN,zh;q=0.9"
-HEADER_PHONE_CACHE_CONTROL="max-age=0"
-HEADER_PHONE_CONNECTION="keep-alive"
-HEADER_PHONE_CONTENT_TYPE="application/x-www-form-urlencoded"
-HEADER_PHONE_HOST="10.0.254.125:801"
-HEADER_PHONE_ORIGIN="http://10.0.254.125"
-HEADER_PHONE_REFERER="http://10.0.254.125/"
-HEADER_PHONE_UPGRADE_INSECURE_REQUESTS="1"
-HEADER_PHONE_USER_AGENT="Mozilla/5.0 (Linux; Android 10; HuaWei Mate Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Mobile Safari/537.36 EdgA/98.0.1108.62"
-
-HEADER_DESKTOP_ACCEPT="*/*"
-HEADER_DESKTOP_ACCEPT_ENCODING="gzip, deflate"
-HEADER_DESKTOP_ACCEPT_LANGUAGE="zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"
-HEADER_DESKTOP_CONNECTION="keep-alive"
-HEADER_DESKTOP_DNT="1"
-HEADER_DESKTOP_HOST="10.0.254.125:801"
-HEADER_DESKTOP_REFERER="http://10.0.254.125"
-HEADER_DESKTOP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36 Edg/94.0.992.31"
-
+HEADER_ACCEPT="*/*"
+HEADER_ACCEPT_ENCODING="gzip, deflate"
+HEADER_ACCEPT_LANGUAGE="zh-CN,zh;q=0.9"
+HEADER_CACHE_CONTROL="max-age=0"
+HEADER_CONNECTION="keep-alive"
+HEADER_DNT="1"
+HEADER_REFERER="http://10.0.254.125/"
+HEADER_HOST="10.0.254.125:801"
+HEADER_CONTENT_TYPE="application/x-www-form-urlencoded"
+HEADER_ORIGIN="http://10.0.254.125"
+HEADER_UPGRADE_INSECURE_REQUESTS="1"
+HEADER_USER_AGENT_PHONE="Mozilla/5.0 (Linux; Android 10; HuaWei Mate Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Mobile Safari/537.36 EdgA/98.0.1108.62"
+HEADER_USER_AGENT_DESKTOP="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36 Edg/94.0.992.31"
 
 process() {
     data_new_login[1]="user_account=,$device,$user@telecom"
     data_new_login[2]="user_password=$passwd"
     data_new_login[3]="terminal_type=$device"
-    data_new_login[6]="callback=dr1011"
-    data_new_login[7]="login_method=1"
-    data_new_login[8]="wlan_user_mac=000000000000"
-    data_new_login[9]="ua_name=Netscape"
-    data_new_login[9]="ua_code=Mozilla"
+    data_new_login[4]="callback=dr1011"
+    data_new_login[5]="login_method=1"
+    data_new_login[6]="wlan_user_mac=000000000000"
+    data_new_login[7]="ua_name=Netscape"
+    data_new_login[8]="ua_code=Mozilla"
 
-    
     data_new_logout[1]="user_account=$user@telecom"
-    data_new_logout[4]="callback=dr1003"
-    data_new_logout[5]="wlan_user_mac=000000000000"
-    data_new_logout[6]="wlan_user_ip="
-    data_new_logout[7]="jsVersion=4.1.3"
-    data_new_logout[8]="lang=zh"
+    data_new_logout[2]="callback=dr1003"
+    data_new_logout[3]="wlan_user_mac=000000000000"
+    data_new_logout[4]="wlan_user_ip="
+    data_new_logout[5]="jsVersion=4.1.3"
+    data_new_logout[6]="lang=zh"
 
     # 设置请求头变量
     if [ $device -eq 1 ]; then
-        data_new_login[4]="ua_version=$ua_ph"
-        data_new_login[5]="ua_agent=Mozilla%2$ua_ph"
-        data_new_logout[2]="ua_version=$ua_ph"
-        data_new_logout[3]="ua_agent=Mozilla%2$ua_ph"
-        header_accept=${HEADER_PHONE_ACCEPT}
-        header_accept_encoding=${HEADER_PHONE_ACCEPT_ENCODING}
-        header_accept_language=${HEADER_PHONE_ACCEPT_LANGUAGE}
-        header_cache_control=${HEADER_PHONE_CACHE_CONTROL}
-        header_connection=${HEADER_PHONE_CONNECTION}
-        header_content_type=${HEADER_PHONE_CONTENT_TYPE}
-        header_host=${HEADER_PHONE_HOST}
-        header_origin=${HEADER_PHONE_ORIGIN}
-        header_referer=${HEADER_PHONE_REFERER}
-        header_upgrade_insecure_requests=${HEADER_PHONE_UPGRADE_INSECURE_REQUESTS}
-        header_user_agent=${HEADER_PHONE_USER_AGENT}
+        data_new_login[9]="ua_version=$ua_ph"
+        data_new_login[10]="ua_agent=Mozilla%2$ua_ph"
+        data_new_logout[7]="ua_version=$ua_ph"
+        data_new_logout[8]="ua_agent=Mozilla%2$ua_ph"
+        header_user_agent=${HEADER_USER_AGENT_PHONE}
     else
-        data_new_login[4]="ua_version=$ua_pc"
-        data_new_login[5]="ua_agent=Mozilla%2$ua_pc"
-        data_new_logout[2]="ua_version=$ua_pc"
-        data_new_logout[3]="ua_agent=%2$ua_pc"
-        header_accept=${HEADER_DESKTOP_ACCEPT}
-        header_accept_encoding=${HEADER_DESKTOP_ACCEPT_ENCODING}
-        header_accept_language=${HEADER_DESKTOP_ACCEPT_LANGUAGE}
-        header_connection=${HEADER_DESKTOP_CONNECTION}
-        header_dnt=${HEADER_DESKTOP_DNT}
-        header_host=${HEADER_DESKTOP_HOST}
-        header_referer=${HEADER_DESKTOP_REFERER}
-        header_user_agent=${HEADER_DESKTOP_USER_AGENT}
+        data_new_login[9]="ua_version=$ua_pc"
+        data_new_login[10]="ua_agent=Mozilla%2$ua_pc"
+        data_new_logout[7]="ua_version=$ua_pc"
+        data_new_logout[8]="ua_agent=%2$ua_pc"
+        header_user_agent=${HEADER_USER_AGENT_DESKTOP}
     fi
 }
+
 
 login() {
     process
@@ -114,15 +89,18 @@ login() {
     params_new_login=$(IFS="&"; echo "${data_new_login[*]}")
 
     read result msg <<< $(curl -s --compressed "$url_new_login?$params_new_login" \
-        -H "Accept:${header_accept}" \
-        -H "Accept-Encoding:${header_accept_encoding}" \
-        -H "Accept-Language: ${header_accept_language}" \
-        -H "Cache-Control:${header_cache_control}" \
-        -H "Connection:${header_connection}" \
-        -H "DNT:${header_dnt}" \
-        -H "Referer:${header_referer}" \
+        -H "Accept:${HEADER_ACCEPT}" \
+        -H "Accept-Encoding:${HEADER_ACCEPT_ENCODING}" \
+        -H "Accept-Language: ${HEADER_ACCEPT_LANGUAGE}" \
+        -H "Cache-Control:${HEADER_CACHE_CONTROL}" \
+        -H "Connection:${HEADER_CONNECTION}" \
+        -H "DNT:${HEADER_DNT}" \
+        -H "Referer:${HEADER_REFERER}" \
+        -H "Host:${HEADER_HOST}" \
         -H "User-Agent:${header_user_agent}" \
-        -H "Host:${header_host}" \
+        -H "Content_Type:${HEADER_CONTENT_TYPE}" \
+        -H "Origin:${HEADER_ORIGIN}" \
+        -H "Upgrade-Insecure-Requests:${HEADER_UPGRADE_INSECURE_REQUESTS}" \
         --output - | sed 's/dr1011(//;s/);$//;s/.*"result":\([^,]*\),.*"msg":"\([^"]*\)".*/\1 \2/')
 }
 
