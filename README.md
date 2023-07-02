@@ -44,3 +44,27 @@ This script include these features:
 bugs:
 
 - Canceled orders won't show on website but it actually canceled from backend.
+
+## estimate.js
+
+Help you to fill all the annoying option boxes when evaluate the courses.
+
+Usage:
+
+1. Open Teaching evaluate website on academic affairs system.
+2. Expand the courses list to show all courses you have this term
+3. Open webconsole through F12
+4. Paste following code
+
+Option One:
+
+```js
+$('head').append('<script src="https://static.mackenia.co/estimate.js"></script>'); 
+estimate();
+```
+
+Option Two:
+
+1. Copy all code in `estimate.js`
+2. Paste it in console
+3. run `estimate()`
