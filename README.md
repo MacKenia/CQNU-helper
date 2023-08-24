@@ -13,6 +13,8 @@ features:
 
 You can add some python code and made it to connect network when your computer start up.
 
+[Binary In Rust by @mobeicanyue](https://github.com/mobeicanyue/Campus-Network-Master-Rust)
+
 ## LoginIntoCqnu.sh
 
 You can use this script to login to your campus network or use it to automatic jobs.
