@@ -73,7 +73,7 @@ Usage:
 Option One:
 
 ```js
-$('head').append('<script src="https://static.mackenia.co/estimate.js"></script>'); 
+$('head').append('<script src="https://static.cqnu.asia/estimate.js"></script>'); 
 estimate();
 ```
 
@@ -82,3 +82,22 @@ Option Two:
 1. Copy all code in `estimate.js`
 2. Paste it into the console
 3. run `estimate()`
+
+## thanks
+
+Special thanks to Microsoft for providing [visual studio code](https://code.visualstudio.com/) and open-source projects to support.
+
+[![My Skills](https://skillicons.dev/icons?i=vscode,neovim,bash,python,javascript)](https://code.visualstudio.com/)
+
+## license
+
+This project uses the Apache license 3.0 agreement, which is only for learning and communication. Please delete it within 24 hours after downloading. use should follow local laws and regulations, and do not use for illegal purposes.
+
+```txt
+                      gnu general public license
+                       version 3, 29 june 2007
+
+ copyright (c) 2007 free software foundation, inc. <https://fsf.org/>
+ everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+```
