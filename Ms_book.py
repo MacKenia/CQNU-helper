@@ -9,6 +9,7 @@ pip install requests beautifulsoup4 pyDes Pillow
 
 date 格式 yyyymmdd 示例 20220510
 """
+import asyncio
 import base64 as bs
 import json, re, time, os
 from PIL import Image
@@ -43,7 +44,19 @@ class MyHandler(BaseHTTPRequestHandler):
         return
 
 class BookYourDream:
-    def __init__(self):
+    def __init__(self, print_banner:bool=True):
+        if print_banner:
+            banner = r"""  ______   ______  __    __ __    __ 
+ /      \ /      \|  \  |  \  \  |  \
+|  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\ ▓▓\ | ▓▓ ▓▓  | ▓▓
+| ▓▓   \▓▓ ▓▓  | ▓▓ ▓▓▓\| ▓▓ ▓▓  | ▓▓
+| ▓▓     | ▓▓  | ▓▓ ▓▓▓▓\ ▓▓ ▓▓  | ▓▓
+| ▓▓   __| ▓▓ _| ▓▓ ▓▓\▓▓ ▓▓ ▓▓  | ▓▓
+| ▓▓__/  \ ▓▓/ \ ▓▓ ▓▓ \▓▓▓▓ ▓▓__/ ▓▓
+ \▓▓    ▓▓\▓▓ ▓▓ ▓▓ ▓▓  \▓▓▓\▓▓    ▓▓
+  \▓▓▓▓▓▓  \▓▓▓▓▓▓\\▓▓   \▓▓ \▓▓▓▓▓▓ 
+               \▓▓▓                   .edu.cn"""
+            print(banner)
         self.D_ONE = 141  # 梦一厅
         self.D_TWO = 142  # 梦二厅
         self.D_THREE = 261  # 梦三厅
@@ -285,6 +298,15 @@ class BookYourDream:
             self.ws_response = ws.recv()
             return r
 
+    async def book_async(self, table:dict) -> rts.Response:
+        task = asyncio.ensure_future(self.book(table))
+        task.cancel_after(5)
+
+        try:
+            return await task.result()
+        except asyncio.CancelledError:
+            print(f"ws连接超时")
+
     def book_time(self, room:str, date:str, times:str):
         param = {
             "type": "day",
@@ -524,7 +546,7 @@ class BookYourDream:
                 if choice == 1:
                     reserve = self.inquire(room[cRoom-1], date)
                     if reserve:
-                        self.response = self.book(reserve)
+                        self.response = asyncio.run(self.book(reserve))
                         self.response = self.main_se.get(self.success_page, params={"id": json.loads(self.ws_response)['object']['orderid']})
                         self.table = self.table_patten.findall(self.response.text)[0]
                         print(f"\n预定成功:\n座位号: {self.table[1]:0>2}排{self.table[2]}座\n")
