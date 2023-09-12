@@ -196,7 +196,7 @@ class uBills:
             p1_res_S = p1.findall(res_S.text)[0]
             p1_res_D = p1.findall(res_D.text)[0]
             print(p1_res_S, p1_res_D)
-            return f"电费剩余: {p1_res_D}, 水费剩余: {p1_res_S}", float(p1_res_D), float(p1_res_S), 0
+            return f"电费剩余: {p1_res_D}, 水费剩余: {p1_res_S}", float(p1_res_D) + float(p1_res_S), float(p1_res_D), float(p1_res_S)
 
         res = requests.post(self.tsm, data={"jsondata": json.dumps(data), "funname": "synjones.onecard.query.elec.roominfo"})
         try:
@@ -204,7 +204,7 @@ class uBills:
             return f"水电剩余: {p2_res[0]}, 电补剩余: {p2_res[1]}, 水补剩余: {p2_res[2]}", float(p2_res[0]), float(p2_res[1]), float(p2_res[2])
         except:
             p3_res = p3.findall(res.text)
-            return f"电费剩余: {p3_res[0]}", 0, 0, 0
+            return f"水电费剩余: {p3_res[0]}", float(p3_res[0]), float(p3_res[0]), float(p3_res[0])
         
 
 if __name__ == "__main__":
