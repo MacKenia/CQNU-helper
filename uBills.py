@@ -5,7 +5,7 @@ import json
 class uBills:
 
     def __init__(self) -> None:
-        self.tsm = "http://yktfwdt.cqnu.edu.cn:8029/web/Common/Tsm.html"
+        self.tsm = "http://202.202.209.1:8030/web/Common/Tsm.html"
 
         self.cheat_sheet_pro = {
             "嘉风": {
