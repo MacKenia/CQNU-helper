@@ -28,7 +28,7 @@ You can log in without Python in a tiny Linux system but you still need `curl` a
 
 ## Ms_book.py
 
-> extend form 07's script
+> extend from 07's script
 
 ⚠️ Only work with Python < 3.11
 
