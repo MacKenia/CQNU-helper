@@ -54,7 +54,11 @@ You can login without Python in a Windows system.
 
 Usage:
 ```
+# don't use credentials.json
 ./LoginIntoCqnu.ps1 -action login -device 1 123456 password # 1 means phone
+
+# use credentials.json
+./LoginIntoCqnu.ps1
 ```
 
 
