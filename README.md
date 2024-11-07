@@ -26,6 +26,17 @@ features:
 
 You can log in without Python in a tiny Linux system but you still need `curl` and `sed` in your system.
 
+## LoginIntoCqnu.ps1
+
+You can use this script to login to your campus network or use it for automatic jobs.
+
+features:
+
+- Ignore login type
+- Add as automated tasks
+
+You can login without Python in a Windows system.
+
 ## Ms_book.py
 
 > extend from 07's script
