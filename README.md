@@ -39,7 +39,7 @@ features:
 
 - Ignore login type
 - Add as automated tasks
-- auto login accounts in `credentials.json` as phone terminal type
+- auto login accounts in `credentials.json` as phone terminal type (optional)
 
 You can login without Python in a Windows system.
 
