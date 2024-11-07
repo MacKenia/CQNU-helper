@@ -26,6 +26,11 @@ features:
 
 You can log in without Python in a tiny Linux system but you still need `curl` and `sed` in your system.
 
+Usage:
+```
+bash LoginIntoCqnu.sh login 123456 password phone
+```
+
 ## LoginIntoCqnu.ps1
 
 You can use this script to login to your campus network or use it for automatic jobs.
@@ -34,8 +39,24 @@ features:
 
 - Ignore login type
 - Add as automated tasks
+- auto login accounts in `credentials.json` as phone terminal type
 
 You can login without Python in a Windows system.
+
+`credentials.json` template
+```json
+{
+    "account":"password",
+    "123456":"123456",
+    ...
+}
+```
+
+Usage:
+```
+./LoginIntoCqnu.ps1 -action login -device 1 123456 password # 1 means phone
+```
+
 
 ## Ms_book.py
 
