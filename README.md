@@ -78,10 +78,6 @@ This script includes these features:
 - generate .ics and send it to your phone
 - auto login in
 
-bugs:
-
-- Canceled orders won't show on the website but it actually canceled from the backend.
-
 ## uBills.py
 
 This script is used to acquire utility bills for your dormitory.
