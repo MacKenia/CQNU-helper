@@ -131,7 +131,7 @@ class BookYourDream:
         # 方法一:
         try:
             import ddddocr
-            ocr = ddddocr.DdddOcr()
+            ocr = ddddocr.DdddOcr(show_ad=False)
             code = ocr.classification(ver)
         except:
             print("can't import ddddocr switch to another decode method")
@@ -178,8 +178,9 @@ class BookYourDream:
 
         print(ver_code)
 
-        key = ping_inputs[4].get("value")[:8]
-        execution = ping_inputs[5].get("value")
+        execution = pings.find("input", {"name": "execution"}).get("value")
+        lt = pings.find("input", {"name": "lt"}).get("value")
+        key = lt[:8]
 
         password = self.encrypt_des(passwd, key)
 
@@ -187,7 +188,7 @@ class BookYourDream:
             "username": user,
             "password": password,
             "authCode": ver_code,
-            "lt": ping_inputs[4].get("value"),
+            "lt": lt,
             "execution": execution,
             "_eventId": "submit",
             "isQrSubmit": "false",
@@ -397,10 +398,6 @@ class BookYourDream:
             time.sleep(sleep_gap)
 
     def cancel_order(self, orderid:str):
-        """
-        已知问题:
-            后端数据库已取消，前端不同步
-        """
         r = self.main_se.get(str(self.order_url + orderid))
         if not r:
             print("网络错误")
@@ -409,7 +406,7 @@ class BookYourDream:
         rr.append(orderid)
         for j in rr:
             data = {
-                "orderid": j,
+                "id": j,
                 "json": True
             }
             self.main_se.post(self.cancel_detail_url, data=data,
