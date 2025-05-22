@@ -15,9 +15,8 @@ logging.basicConfig(
 
 def push_log(message: str, sub: str=None) -> None:
     requests.post("https://ntfy.sh/36d1053c-c2da-42d8-bcfd-871d2a4c645c-027", data=message)
-    if sub and sub != "20240516027":
-        if message.find("成功") > 0:
-            requests.post(f"https://ntfy.sh/36d1053c-c2da-42d8-bcfd-871d2a4c645c-{sub}", data=message)
+    if message.find("成功") > 0:
+        requests.post(f"https://ntfy.sh/36d1053c-c2da-42d8-bcfd-871d2a4c645c-{sub}", data=message)
 
 
 class GymBook:
