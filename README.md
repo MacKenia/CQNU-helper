@@ -125,6 +125,8 @@ Usage:
 python GymBook.py -u 2xxxx -p password -c 1 -v 1
 ```
 
+Don't kill program and wait until tomorrow 8:00 AM. Script will book court one(badminton) venv one for you.
+
 ## Thanks
 
 Special thanks to Microsoft for providing [visual studio code](https://code.visualstudio.com/) and open-source projects to support.
