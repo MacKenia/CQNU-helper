@@ -115,13 +115,23 @@ Option Two:
 2. Paste it into the console
 3. run `estimate()`
 
-## thanks
+## GymBook.py
+
+This script is used to book gym court.
+
+Usage:
+
+```python
+python GymBook.py -u 2xxxx -p password -c 1 -v 1
+```
+
+## Thanks
 
 Special thanks to Microsoft for providing [visual studio code](https://code.visualstudio.com/) and open-source projects to support.
 
 [![My Skills](https://skillicons.dev/icons?i=vscode,neovim,bash,python,javascript)](https://code.visualstudio.com/)
 
-## license
+## License
 
 This project uses the Apache license 3.0 agreement, which is only for learning and communication. Please delete it within 24 hours after downloading. use should follow local laws and regulations, and do not use for illegal purposes.
 
