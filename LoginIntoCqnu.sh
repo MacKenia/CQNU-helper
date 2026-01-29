@@ -12,22 +12,18 @@ echo "\
   \▓▓▓▓▓▓  \▓▓▓▓▓▓\\\\▓▓   \▓▓ \▓▓▓▓▓▓ 
                \▓▓▓                   .edu.cn"
 
-# ePortal 主机 IP 或域名
-EPORTAL_HOST="10.0.254.125:801"
-
-# 默认的 Referer URL，通常是认证页面的根路径
-DEFAULT_REFERER="http://$EPORTAL_HOST/"
+# --- 用户配置 ---
+EPORTAL_HOST="10.0.254.125:801" # ePortal 主机 IP 或域名
+DEFAULT_REFERER="http://$EPORTAL_HOST/" # 默认的 Referer URL
 
 # --- URL 配置 ---
 url_new_login="http://$EPORTAL_HOST/eportal/portal/login"
 url_new_logout="http://$EPORTAL_HOST/eportal/portal/mac/unbind"
-url_online_list_status="http://$EPORTAL_HOST/eportal/portal/online_list" # 用于检查状态和获取已登录IP/MAC
 
-# --- User-Agent 配置 (用于 HTTP 头，非 URL 参数) ---
+# --- 公共请求头 (User-Agent 随device类型动态设置) ---
 HEADER_USER_AGENT_PHONE="Mozilla/5.0 (Linux; Android 10; HuaWei Mate Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Mobile Safari/537.36 EdgA/98.0.1108.62"
 HEADER_USER_AGENT_DESKTOP="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36 Edg/94.0.992.31"
 
-# --- 公共请求头 ---
 HEADER_ACCEPT="*/*"
 HEADER_ACCEPT_ENCODING="gzip, deflate"
 HEADER_ACCEPT_LANGUAGE="zh-CN,zh;q=0.9"
@@ -35,245 +31,101 @@ HEADER_CONNECTION="keep-alive"
 HEADER_HOST="$EPORTAL_HOST"
 
 # --- 全局变量用于存储获取到的 IP/MAC/AC IP ---
-WLAN_USER_IP="0.0.0.0" # 初始默认值
-WLAN_USER_MAC="000000000000" # 初始默认值
-WLAN_AC_IP="0.0.0.0" # 初始默认值
-WLAN_USER_IPV6="" # 你的curl命令有这个参数
-USER="" # 声明用户全局变量
-PASSWD="" # 声明密码全局变量
+WLAN_USER_IP="0.0.0.0" # 黄金请求中IP是动态获取的IPv4
+WLAN_USER_MAC="000000000000" # 黄金请求中MAC是全0
+WLAN_AC_IP="" # 黄金请求中AC IP是空的
+WLAN_USER_IPV6="" # 黄金请求中IPv6是空的
+USER="" # 账号
+PASSWD="" # 密码
 
-# --- JSONP 回调计数器 (模拟 JS 行为) ---
-JSONP_COUNTER=1000
-generate_callback_name() { JSONP_COUNTER=$((JSONP_COUNTER + 1)); echo "dr${JSONP_COUNTER}"; }
-ip_to_parse_int() {
-    local ip_str="$1"; if [[ -z "$ip_str" || "$ip_str" == "0.0.0.0" ]]; then echo 0; return; fi
-    if [[ "$ip_str" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-        local p1="${BASH_REMATCH[1]}"; local p2="${BASH_REMATCH[2]}"; local p3="${BASH_REMATCH[3]}"; local p4="${BASH_REMATCH[4]}"; printf "%d\n" "$(( p1 << 24 | p2 << 16 | p3 << 8 | p4 ))"; else echo 0; fi
-}
-bash_urldecode() { local url_encoded="$1"; local decoded_string="${url_encoded//+/ }"; printf '%b' "${decoded_string//%/\\x}"; }
+# --- 辅助函数 ---
 remove_newlines() { local string="$1"; string=${string//$'\n'/}; string=${string//$'\r'/}; echo "$string"; }
+set_global_var() { local var_name="$1"; local value="$2"; printf -v "$var_name" "%s" "$value"; }
 
-# 辅助函数，用于将值安全地赋给全局变量
-set_global_var() {
-    local var_name="$1"
-    local value="$2"
-    printf -v "$var_name" "%s" "$value"
+# --- debug 控制函数 ---
+# 设置 EPORTAL_DEBUG=1 来启用调试输出
+debug_log() {
+    if [[ "$EPORTAL_DEBUG" == "1" ]]; then
+        echo "[DEBUG] $@" >&2
+    fi
+}
+log_info() {
+    if [[ "$EPORTAL_DEBUG" == "1" ]]; then
+        echo "--- $@" >&2
+    fi
 }
 
-# `preload_term_info` 函数：参数提取逻辑直接内联
+in_array() {
+  local needle=$1
+  local haystack=("$@")
+  for element in "${haystack[@]}"; do
+    if [[ "$element" == "$needle" ]]; then
+      return 0  # Found
+    fi
+  done
+  return 1  # Not found
+}
+
+# `preload_term_info` 函数：只获取 IPv4，其他固定值
 preload_term_info() {
-    # 调试信息到 stderr
-    echo "--- 预加载终端信息 ---" >&2
-    local initial_access_url="http://neverssl.com"
-    echo "尝试访问：$initial_access_url 获取重定向 URL..." >&2
+    # log_info "预加载终端信息"; debug_log "WLAN_USER_IP (at start of preload_term_info): '${WLAN_USER_IP}'"
 
-    local eportal_login_target_url_raw=$(curl -L -s --max-time 10 -o /dev/null -w "%{url_effective}" "$initial_access_url")
-    local eportal_login_target_url=$(remove_newlines "$eportal_login_target_url_raw")
-    echo "DEBUG_PRELOAD: Captured URL (after remove_newlines): '${eportal_login_target_url}'" >&2
+    local target_eportal_ip="10.0.254.125"
+    if [[ "$EPORTAL_HOST" =~ ^([0-9.]+):([0-9]+)$ ]]; then target_eportal_ip="${BASH_REMATCH[1]}"; elif [[ "$EPORTAL_HOST" =~ ^([a-zA-Z0-9\.-]+):([0-9]+)$ ]]; then target_eportal_ip="${BASH_REMATCH[1]}"; fi
+    local target_url="http://${target_eportal_ip}"
 
-    if [[ -z "$eportal_login_target_url" || "$eportal_login_target_url" == "$initial_access_url" ]]; then
-        echo "警告: 无法自动获取到 ePortal 登录初始 URL 或未发生重定向。" >&2
-        echo "请务必确保网络处于 '未认证' 状态，否则将无法正确获取IP/MAC进行认证。" >&2
-        
-        while true; do
-            read -p "请输入 ePortal 认证页面的完整 URL (例如: 从浏览器F12获取，必须提供有效IP/MAC): " MANUAL_AUTH_URL_RAW >/dev/null # 提示信息用户可见，输入重定向到/dev/null
-            local MANUAL_AUTH_URL=$(remove_newlines "$MANUAL_AUTH_URL_RAW")
-            if [[ -n "$MANUAL_AUTH_URL" ]]; then
-                if [[ "$MANUAL_AUTH_URL" == *"ip1="* || "$MANUAL_AUTH_URL" == *"wlan_user_ip="* ]] && \
-                   [[ "$MANUAL_AUTH_URL" == *"mac="* || "$MANUAL_AUTH_URL" == *"usermac="* ]]; then
-                    eportal_login_target_url="$MANUAL_AUTH_URL"
-                    break
-                else
-                    echo "错误: 您提供的 URL 似乎没有包含 IP 或 MAC 参数。请提供完整的认证页面 URL。" >&2
-                fi
-            else
-                echo "错误: 必须提供 ePortal 认证页面的完整 URL 以获取 IP/MAC。" >&2
-            fi
-        done
-         echo "DEBUG_PRELOAD: Using manually entered URL: '${eportal_login_target_url}'" >&2
+    log_info "尝试访问：$target_url 获取HTML页面以提取IP..."
+
+    current_ip=$(curl --connect-timeout 1 -s http://10.0.254.125 \
+      | grep -Eo '10(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}')
+
+    readarray -t ips < <(tr ' ' '\n' <<<"$current_ip")
+
+    declare -A seen=()
+    unique_ips=()
+
+    for ip in "${ips[@]}"; do
+      [[ "$ip" == "10.0.254.125" ]] && continue
+      [[ -n "${seen[$ip]}" ]] && continue
+      seen[$ip]=1
+      unique_ips+=("$ip")
+    done
+
+    # echo "unique: ${unique_ips[@]}"
+
+    if ((${#unique_ips[@]})); then
+      last_ip="${unique_ips[-1]}"
+    #   echo "last: $last_ip"
+    else
+    #   echo "没有筛选到可用 IP"
     fi
 
-    echo "从 URL: $eportal_login_target_url 提取参数 (内联逻辑直接处理)..." >&2
+    set_global_var WLAN_USER_IP "$last_ip"
+
+    # 固定其他参数
+    set_global_var WLAN_USER_MAC "000000000000"
+    set_global_var WLAN_AC_IP ""
+    set_global_var WLAN_USER_IPV6 ""
+
+    # echo "--------------------------" >&2
     
-    local query_string_raw=$(echo "$eportal_login_target_url" | sed -n 's/^[^?]*\?\([^#]*\).*$/\1/p')
-    local query_string_cleaned_start=$(echo "$query_string_raw" | sed -E 's/^[^a-zA-Z0-9]*//')
-    local query_string=$(remove_newlines "$query_string_cleaned_start")
-    echo "DEBUG_PRELOAD: Final cleaned query_string for direct parsing: '${query_string}'" >&2
-
-    local current_extracted_val=""
-    
-    # --- IP ---
-    local ip_aliases=( 'ip1' 'ip' 'wlanuserip' 'userip' 'user-ip' 'client_ip' 'UserIP' 'uip' 'station_ip' )
-    current_extracted_val=""
-    for alias in "${ip_aliases[@]}"; do
-        if [[ "$query_string" == *"${alias}="* ]]; then
-            local remainder="${query_string#*${alias}=}"
-            current_extracted_val="${remainder%%&*}"
-            break
-        fi
-    done
-    current_extracted_val=$(bash_urldecode "$current_extracted_val")
-    set_global_var WLAN_USER_IP "${current_extracted_val:-0.0.0.0}"
-    echo "DEBUG_PRELOAD: WLAN_USER_IP after direct parsing: '${WLAN_USER_IP}'" >&2
-
-    # --- MAC ---
-    local mac_aliases=( 'mac' 'usermac' 'wlanusermac' 'umac' 'client_mac' 'station_mac' ) # 修正：移除了 client_mac 重复
-    current_extracted_val=""
-    for alias in "${mac_aliases[@]}"; do
-        if [[ "$query_string" == *"${alias}="* ]]; then
-            local remainder="${query_string#*${alias}=}"
-            current_extracted_val="${remainder%%&*}"
-            break
-        fi
-    done
-    current_extracted_val=$(bash_urldecode "$current_extracted_val" | tr -d ':-')
-    set_global_var WLAN_USER_MAC "${current_extracted_val:-000000000000}"
-    echo "DEBUG_PRELOAD: WLAN_USER_MAC after direct parsing: '${WLAN_USER_MAC}'" >&2
-
-    # --- AC IP ---
-    local ac_ip_aliases=( 'wlanacip' 'acip' 'switchip' 'nasip' 'nas-ip' )
-    current_extracted_val=""
-    for alias in "${ac_ip_aliases[@]}"; do
-        if [[ "$query_string" == *"${alias}="* ]]; then
-            local remainder="${query_string#*${alias}=}"
-            current_extracted_val="${remainder%%&*}"
-            break
-        fi
-    done
-    current_extracted_val=$(bash_urldecode "$current_extracted_val")
-    set_global_var WLAN_AC_IP "${current_extracted_val:-0.0.0.0}"
-    echo "DEBUG_PRELOAD: WLAN_AC_IP after direct parsing: '${WLAN_AC_IP}'" >&2
-
-    # --- IPv6 ---
-    local ipv6_aliases=( 'wlan_user_ipv6' 'UserV6IP' 'ipv6' )
-    current_extracted_val=""
-    for alias in "${ipv6_aliases[@]}"; do
-        if [[ "$query_string" == *"${alias}="* ]]; then
-            local remainder="${query_string#*${alias}=}"
-            current_extracted_val="${remainder%%&*}"
-            break
-        fi
-    done
-    current_extracted_val=$(bash_urldecode "$current_extracted_val")
-    set_global_var WLAN_USER_IPV6 "${current_extracted_val}"
-    echo "DEBUG_PRELOAD: WLAN_USER_IPV6 after direct parsing: '${WLAN_USER_IPV6}'" >&2
-
-    echo "获取到的 IP: ${WLAN_USER_IP}" >&2
-    echo "获取到的 MAC: ${WLAN_USER_MAC}" >&2
-    echo "获取到的 AC IP: ${WLAN_AC_IP}" >&2
-    echo "获取到的 IPv6: ${WLAN_USER_IPV6}" >&2
-    echo "--------------------------" >&2
-    
-    if [[ "$WLAN_USER_IP" == "0.0.0.0" || "$WLAN_USER_MAC" == "000000000000" ]]; then
-        echo "严重警告: 无法从 URL 获取有效的 IP 或 MAC 地址。请确保提供的 URL 确实包含了正确的参数。" >&2
-        return 1
-    fi
+    if [[ "$last_ip" == "0.0.0.0" ]]; then
+        echo "0 严重警告: 未能从 HTML 页面中获取有效的 IPv4 地址。请确保提供的 URL 确实包含了正确的 IPv4 参数，或手动输入。" >&2; return 1; fi
 
     return 0
 }
 
-check_current_online_status() {
-    echo "--- 检查当前在线状态 ---" >&2
-    local callback_name=$(generate_callback_name)
+login_func() { # 登录函数
     
-    local check_params=(
-        "callback=${callback_name}"
-        "user_account="
-        "user_password="
-    )
-
-    IFS="&"
-    local query_string_raw="${check_params[*]}"
-    local query_string=$(remove_newlines "$query_string_raw")
-    unset IFS
-
-    local FULL_CHECK_URL="${url_online_list_status}?${query_string}"
-
-    echo "查询 URL: ${url_online_list_status}" >&2
-    echo "完整请求: ${FULL_CHECK_URL}" >&2
-    echo "User-Agent: ${HEADER_USER_AGENT_DESKTOP}" >&2
-
-    local response_raw=$(curl --connect-timeout 5 --max-time 10 -s --compressed "$FULL_CHECK_URL" \
-        -H "Accept:${HEADER_ACCEPT}" \
-        -H "Accept-Encoding:${HEADER_ACCEPT_ENCODING}" \
-        -H "Accept-Language:${HEADER_ACCEPT_LANGUAGE}" \
-        -H "Connection:${HEADER_CONNECTION}" \
-        -H "Referer:${DEFAULT_REFERER}" \
-        -H "Host:${HEADER_HOST}" \
-        -H "User-Agent:${HEADER_USER_AGENT_DESKTOP}")
+    # Bug修复：移除所有 callback 生成和传递逻辑
     
-    local response=$(remove_newlines "$response_raw")
-    echo "DEBUG_ONLINE_STATUS: Raw response from curl for online_list: '${response}'" >&2
-
-    local json_part=""
-    if [[ "$response" =~ ^"${callback_name}"\((.*?)\)\;?$ ]]; then
-        json_part="${BASH_REMATCH[1]}"
-    else
-        echo "DEBUG_ONLINE_STATUS: 无法从响应解析 JSONP 结构。响应不以 ${callback_name}(...); 形式开始。" >&2
-        echo "DEBUG_ONLINE_STATUS: 原始响应是: '${response}'" >&2
-        return 2
-    fi
-
-    local result_code=""
-    if [[ "$json_part" =~ \"result\":([0-9]+) ]]; then
-        result_code="${BASH_REMATCH[1]}"
-    fi
-
-    local online_ip_from_resp=""
-    if [[ "$json_part" =~ \"online_ip\":\"([0-9\.]*)\" ]]; then
-        online_ip_from_resp="${BASH_REMATCH[1]}"
-    fi
-
-    local online_mac_from_resp=""
-    if [[ "$json_part" =~ \"online_mac\":\"([^\"]*)\" ]]; then
-        online_mac_from_resp="${BASH_REMATCH[1]}"
-        online_mac_from_resp=$(echo "$online_mac_from_resp" | tr -d ':-')
-    fi
-
-    if [[ "$result_code" == "1" ]]; then
-        echo "DEBUG_ONLINE_STATUS: Status is ONLINE. Updating global IP/MAC from response." >&2
-        set_global_var WLAN_USER_IP "${online_ip_from_resp:-0.0.0.0}"
-        set_global_var WLAN_USER_MAC "${online_mac_from_resp:-000000000000}"
-        echo "当前获取到的 IP (from 在线状态): '${WLAN_USER_IP}'" >&2
-        echo "当前获取到的 MAC (from 在线状态): '${WLAN_USER_MAC}'" >&2
-        return 0
-    elif [[ "$result_code" == "0" ]]; then
-        echo "DEBUG_ONLINE_STATUS: Status is OFFLINE." >&2
-        return 1
-    else
-        echo "DEBUG_ONLINE_STATUS: Unknown result_code: '${result_code}'." >&2
-        return 2
-    fi
-}
-
-process() {
-    if [ "$device" -eq 1 ]; then
-        header_user_agent=${HEADER_USER_AGENT_PHONE}
-    else
-        header_user_agent=${HEADER_USER_AGENT_DESKTOP}
-    fi
-}
-
-login() {
-    process
-
-    local callback_name=$(generate_callback_name)
-    echo "DEBUG_LOGIN: Generated callback_name: '${callback_name}'" >&2
-
-    # 根据设备类型动态设置 user_account 中的数字标识
+    # 根据设备类型动态设置 user_account 中的数字标识 (0 for PC, 1 for Phone)
     local user_account_id=""
-    if [[ "$device" -eq 0 ]]; then # PC
-        user_account_id="0"
-    elif [[ "$device" -eq 1 ]]; then # 手机
-        user_account_id="1"
-    else # 默认或未知，用PC的，防止报错
-        user_account_id="0" 
-    fi
+    if [[ "$device" -eq 0 ]]; then user_account_id="0"; elif [[ "$device" -eq 1 ]]; then user_account_id="1"; else user_account_id="0"; fi
 
     local login_params=(
-        "callback=${callback_name}"
         "login_method=1"
-        "user_account=,${user_account_id},${USER}@telecom" # 动态设置
+        "user_account=,${user_account_id},${USER}@telecom"
         "user_password=$PASSWD"
         "wlan_user_ip=$WLAN_USER_IP"
         "wlan_user_ipv6=$WLAN_USER_IPV6"
@@ -282,68 +134,38 @@ login() {
     )
 
     IFS="&"
-    local params_new_login_raw="${login_params[*]}"
-    unset IFS
-
+    local params_new_login_raw="${login_params[*]}"; unset IFS
     local params_new_login=$(remove_newlines "$params_new_login_raw")
 
     local FULL_LOGIN_URL="$url_new_login?$params_new_login"
 
-    echo "--- 准备登录 ---" >&2
-    echo "登录 URL: ${url_new_login}" >&2
-    echo "完整请求 (部分参数掩码): $(echo "$FULL_LOGIN_URL" | sed "s/user_password=[^&]*/user_password=********/")" >&2
-    echo "User-Agent: ${header_user_agent}" >&2
-
-    local response_raw=$(curl --connect-timeout 5 --max-time 15 -s --compressed "$FULL_LOGIN_URL" \
-        -H "Accept:${HEADER_ACCEPT}" \
-        -H "Accept-Encoding:${HEADER_ACCEPT_ENCODING}" \
-        -H "Accept-Language:${HEADER_ACCEPT_LANGUAGE}" \
-        -H "Connection:${HEADER_CONNECTION}" \
-        -H "Referer:${DEFAULT_REFERER}" \
-        -H "Host:${HEADER_HOST}" \
-        -H "User-Agent:${header_user_agent}")
+    # echo "--- 准备登录，请求URL截取如下 ---" >&2
+    # echo "$(echo "$FULL_LOGIN_URL" | sed "s/user_password=[^&]*/user_password=********/")" >&2
+    echo "$(echo "$FULL_LOGIN_URL")" >&2
+    
+    local response_raw=$(curl --connect-timeout 5 --max-time 15 -s --compressed "$FULL_LOGIN_URL")
     
     local response=$(remove_newlines "$response_raw")
-    echo "DEBUG_LOGIN: Raw response from curl for login: '${response}'" >&2
+    debug_log "Raw response from curl for login: '${response}'"
 
-    local json_result_part=""
-    if [[ "$response" =~ ^"${callback_name}"\((.*?)\)\;?$ ]]; then
-        json_part="${BASH_REMATCH[1]}"
-    else
-        echo "DEBUG_LOGIN: 无法从登录响应解析 JSONP 结构。响应不以 ${callback_name}(...); 形式开始。" >&2
-        echo "DEBUG_LOGIN: 原始响应是: '${response}'" >&2
-        json_part="$response"
-    fi
-
+    # Bug修复：移除 callback 相关的 JSONP 解析，直接匹配 result 和 msg
     local login_result=""
-    if [[ "$json_part" =~ \"result\":([0-9]+) ]]; then
-        login_result="${BASH_REMATCH[1]}"
-    fi
-
+    if [[ "$response" =~ \"result\":([0-9]+) ]]; then login_result="${BASH_REMATCH[1]}"; fi
     local login_msg=""
-    if [[ "$json_part" =~ \"msg\":\"([^\"]*)\" ]]; then
-        login_msg="${BASH_REMATCH[1]}"
-    fi
+    if [[ "$response" =~ \"msg\":\"([^\"]*)\" ]]; then login_msg="${BASH_REMATCH[1]}"; fi
 
     echo "$login_result $login_msg" # 只输出最终结果到 stdout
-    exit 0 # 成功执行并返回结果
 }
 
-logout() {
-    process
+logout_func() { # 注销函数
+    # Bug修复: 移除所有 callback 相关逻辑
+    debug_log "No callback used for logout, as per minimal success curl."
 
-    local callback_name=$(generate_callback_name)
-    echo "DEBUG_LOGOUT: Generated callback_name: '${callback_name}'" >&2
-
-    # 根据设备类型动态设置 user_account 中的数字标识
-    local user_account_id="0" # 0 代表 PC
-    if [[ "$device" -eq 1 ]]; then # 如果是手机
-        user_account_id="1" # 1 代表手机
-    fi
+    local user_account_id=""
+    if [[ "$device" -eq 0 ]]; then user_account_id="0"; elif [[ "$device" -eq 1 ]]; then user_account_id="1"; else user_account_id="0"; fi
 
     local logout_params=(
-        "callback=${callback_name}"
-        "user_account=,${user_account_id},${USER}@telecom" # 动态设置
+        "user_account=,${user_account_id},${USER}@telecom"
         "wlan_user_ip=$WLAN_USER_IP"
         "wlan_user_ipv6=$WLAN_USER_IPV6"
         "wlan_user_mac=$WLAN_USER_MAC"
@@ -352,58 +174,30 @@ logout() {
     )
 
     IFS="&"
-    local params_new_logout_raw="${logout_params[*]}"
-    unset IFS
-
+    local params_new_logout_raw="${logout_params[*]}"; unset IFS
     local params_new_logout=$(remove_newlines "$params_new_logout_raw")
 
     local FULL_LOGOUT_URL="$url_new_logout?$params_new_logout"
 
-    echo "--- 准备注销 ---" >&2
-    echo "注销 URL: ${url_new_logout}" >&2
-    echo "完整请求: $FULL_LOGOUT_URL" >&2
-    echo "User-Agent: ${header_user_agent}" >&2
-
-    local response_raw=$(curl --connect-timeout 5 --max-time 15 -s --compressed "$FULL_LOGOUT_URL" \
-        -H "Accept:${HEADER_ACCEPT}" \
-        -H "Accept-Encoding:${HEADER_ACCEPT_ENCODING}" \
-        -H "Accept-Language:${HEADER_ACCEPT_LANGUAGE}" \
-        -H "Connection:${HEADER_CONNECTION}" \
-        -H "Referer:${DEFAULT_REFERER}" \
-        -H "Host:${HEADER_HOST}" \
-        -H "User-Agent:${header_user_agent}")
+    echo "--- 准备注销，请求URL截取如下 ---" >&2
+    echo "$FULL_LOGOUT_URL" >&2
     
+    local response_raw=$(curl --connect-timeout 5 --max-time 15 -s --compressed "$FULL_LOGOUT_URL")
     local response=$(remove_newlines "$response_raw")
-    echo "DEBUG_LOGOUT: Raw response from curl for logout: '${response}'" >&2
+    debug_log "Raw response from curl for logout: '${response}'"
 
-    local json_result_part=""
-    if [[ "$response" =~ ^"${callback_name}"\((.*?)\)\;?$ ]]; then
-        json_part="${BASH_REMATCH[1]}"
-    else
-        echo "DEBUG_LOGOUT: 无法从注销响应解析 JSONP 结构。响应不以 ${callback_name}(...); 的形式开始。" >&2
-        echo "DEBUG_LOGOUT: 原始响应是: '${response}'" >&2
-        json_part="$response"
-    fi
-
+    # Bug修复: 移除 callback 相关的 JSONP 解析
     local logout_result=""
-    if [[ "$json_part" =~ \"result\":([0-9]+) ]]; then
-        logout_result="${BASH_REMATCH[1]}"
-    fi
-
+    if [[ "$response" =~ \"result\":([0-9]+) ]]; then logout_result="${BASH_REMATCH[1]}"; fi
     local logout_msg=""
-    if [[ "$json_part" =~ \"msg\":\"([^\"]*)\" ]]; then
-        logout_msg="${BASH_REMATCH[1]}"
-    fi
+    if [[ "$response" =~ \"msg\":\"([^\"]*)\" ]]; then logout_msg="${BASH_REMATCH[1]}"; fi
 
     echo "$logout_result $logout_msg" # 只输出最终结果到 stdout
-    exit 0 # 成功执行并返回结果
 }
 
 show_help() {
 echo "Usage: $0 action account password \[device]"
 echo "Use curl to login/logout to the campus network."
-echo "Options:"
-echo -e "  -h, --help\t\tShow this help message and exit"
 echo "Arguments:"
 echo -e "  action\t\tLog in or log out: login, logout"
 echo -e "  account\t\tThe account for logging in (e.g., 2023210516034)"
@@ -411,19 +205,14 @@ echo -e "  password\t\t(Required for login) The password for logging in"
 echo -e "  device\t\t(Optional, default: pc) The device type for logging in: pc, phone"
 }
 
-# --- 命令行参数处理 ---
-ACTION=""
-ACCOUNT=""
-PASSWORD=""
-DEVICE_TYPE="pc" # 默认值
-
+# --- 脚本主入口 ---
 ACTION="$1"; shift
 ACCOUNT="$1"; shift
 PASSWORD="$1"; shift
 if [[ -n "$1" ]]; then DEVICE_TYPE="$1"; shift; fi
 
 if [[ "$ACTION" == "-h" || "$ACTION" == "--help" ]]; then show_help; exit 0; fi
-if [[ -z "$ACTION" ]]; then echo -e "\033[31m错误: 必须指定 'login' 或 'logout' 动作。\033[0m" >&2; show_help; exit 3; fi
+if [[ -z "$ACTION" ]]; then echo "0 错误: 必须指定 'login' 或 'logout' 动作。" >&2; show_help; exit 3; fi
 
 USER="${ACCOUNT}"; PASSWD="${PASSWORD}"
 
@@ -434,53 +223,21 @@ if [[ "$ACTION" == "login" && -z "$PASSWD" ]]; then
     if [[ -n "$EPORTAL_PASSWORD" ]]; then PASSWD="$EPORTAL_PASSWORD"; else read -s -p "请输入密码: " PASSWD_INPUT; echo; PASSWD=$(remove_newlines "$PASSWD_INPUT"); fi
 fi
 
-if [[ -z "$USER" ]]; then echo -e "\033[31m错误: 必须提供账号。\033[0m" >&2; show_help; exit 1; fi
-if [[ "$ACTION" == "login" && -z "$PASSWD" ]]; then echo -e "\033[31m错误: 登录操作需要提供密码。\033[0m" >&2; show_help; exit 1; fi
+if [[ -z "$USER" ]]; then echo "0 错误: 必须提供账号。" >&2; show_help; exit 1; fi
+if [[ "$ACTION" == "login" && -z "$PASSWD" ]]; then echo "0 错误: 登录操作需要提供密码。" >&2; show_help; exit 1; fi
 
-device_numeric=0; if [[ "$DEVICE_TYPE" == "pc" ]]; then device_numeric=0; elif [[ "$DEVICE_TYPE" == "phone" ]]; then device_numeric=1; else echo -e "\033[31m设备类型错误:须为 'pc' 或 'phone'。\033[0m" >&2; show_help; exit 2; fi
+device_numeric=0; if [[ "$DEVICE_TYPE" == "pc" ]]; then device_numeric=0; elif [[ "$DEVICE_TYPE" == "phone" ]]; then device_numeric=1; else echo "0 错误: 设备类型错误。" >&2; show_help; exit 2; fi
 device="$device_numeric"
 
-# --- 主逻辑流程 ---
-# current_status_return_code 声明为全局变量
-current_status_return_code_val=2 
-
-echo "--- 执行前状态检查 ---" >&2
-# 尝试检查当前在线状态，并获取 IP/MAC
-check_current_online_status
-current_status_return_code_val=$? # 0在线，1不在线，2无法判断
-
-if [[ "$current_status_return_code_val" -eq 0 ]]; then
-    echo -e "\n\033[32m当前已在线。获取到的 IP/MAC 将用于后续操作（如刷新会话或注销）。\033[0m" >&2
-    echo "当前获取到的 IP: ${WLAN_USER_IP}" >&2
-    echo "当前获取到的 MAC: ${WLAN_USER_MAC}" >&2
-    
-    if [[ "$ACTION" == "login" ]]; then
-        echo -e "\n\033[33m您已登录，无需重复登录。如果需要刷新会话，可以尝试重新运行登录命令。如需注销，请使用 'logout' 动作。\033[0m" >&2
-        result=1 # 模拟成功状态，但提示无需重登
-        msg="已在线，无需重复登录。"
-        # 注意：此处返回 result msg，并exit 0
-        echo "$result $msg"
-        exit 0
-    fi
-else # 如果不在线 ($current_status_return_code_val -eq 1) 或无法判断 (-eq 2)
-    echo "DEBUG: 当前不在线或无法判断，尝试从重定向 URL 预加载 IP/MAC/AC_IP。" >&2
-    if ! preload_term_info; then
-        echo -e "\033[31m错误: 无法获取有效的 IP/MAC 地址。请确保网络处于未认证状态并提供有效的 URL，否则无法执行认证操作。程序退出。\033[0m" >&2
-        # 注意：此处返回 result msg
-        result=0 # 预加载失败被视为登录失败
-        msg="IP/MAC预加载失败"
-        echo "$result $msg"
-        exit 4
-    fi
+# --- 核心流程：获取 IP 并执行动作 ---
+if ! preload_term_info; then
+    # preload_term_info 已经在内部打印错误信息，并以 "0 IP/MAC预加载失败" 退出
+    exit 4
 fi
 
-# --- 执行登录/注销动作 ---
+# 执行登录/注销动作
 if [[ "$ACTION" == "login" ]]; then
-    login
+    login_func
 elif [[ "$ACTION" == "logout" ]]; then
-    logout
+    logout_func
 fi
-
-# 最终确保，无论任何情况，LoginIntoCqnu.sh 都只输出 result msg 到 stdout
-# 实际的 echo 在 login() 和 logout() 内部，这里不再重复
-exit 0
