@@ -42,39 +42,12 @@ PASSWD="" # 密码
 remove_newlines() { local string="$1"; string=${string//$'\n'/}; string=${string//$'\r'/}; echo "$string"; }
 set_global_var() { local var_name="$1"; local value="$2"; printf -v "$var_name" "%s" "$value"; }
 
-# --- debug 控制函数 ---
-# 设置 EPORTAL_DEBUG=1 来启用调试输出
-debug_log() {
-    if [[ "$EPORTAL_DEBUG" == "1" ]]; then
-        echo "[DEBUG] $@" >&2
-    fi
-}
-log_info() {
-    if [[ "$EPORTAL_DEBUG" == "1" ]]; then
-        echo "--- $@" >&2
-    fi
-}
-
-in_array() {
-  local needle=$1
-  local haystack=("$@")
-  for element in "${haystack[@]}"; do
-    if [[ "$element" == "$needle" ]]; then
-      return 0  # Found
-    fi
-  done
-  return 1  # Not found
-}
-
 # `preload_term_info` 函数：只获取 IPv4，其他固定值
 preload_term_info() {
-    # log_info "预加载终端信息"; debug_log "WLAN_USER_IP (at start of preload_term_info): '${WLAN_USER_IP}'"
 
     local target_eportal_ip="10.0.254.125"
     if [[ "$EPORTAL_HOST" =~ ^([0-9.]+):([0-9]+)$ ]]; then target_eportal_ip="${BASH_REMATCH[1]}"; elif [[ "$EPORTAL_HOST" =~ ^([a-zA-Z0-9\.-]+):([0-9]+)$ ]]; then target_eportal_ip="${BASH_REMATCH[1]}"; fi
     local target_url="http://${target_eportal_ip}"
-
-    log_info "尝试访问：$target_url 获取HTML页面以提取IP..."
 
     current_ip=$(curl --connect-timeout 1 -s http://10.0.254.125 \
       | grep -Eo '10(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}')
@@ -107,11 +80,6 @@ preload_term_info() {
     set_global_var WLAN_AC_IP ""
     set_global_var WLAN_USER_IPV6 ""
 
-    # echo "--------------------------" >&2
-    
-    if [[ "$last_ip" == "0.0.0.0" ]]; then
-        echo "0 严重警告: 未能从 HTML 页面中获取有效的 IPv4 地址。请确保提供的 URL 确实包含了正确的 IPv4 参数，或手动输入。" >&2; return 1; fi
-
     return 0
 }
 
@@ -140,13 +108,11 @@ login_func() { # 登录函数
     local FULL_LOGIN_URL="$url_new_login?$params_new_login"
 
     # echo "--- 准备登录，请求URL截取如下 ---" >&2
-    # echo "$(echo "$FULL_LOGIN_URL" | sed "s/user_password=[^&]*/user_password=********/")" >&2
     echo "$(echo "$FULL_LOGIN_URL")" >&2
     
     local response_raw=$(curl --connect-timeout 5 --max-time 15 -s --compressed "$FULL_LOGIN_URL")
     
     local response=$(remove_newlines "$response_raw")
-    debug_log "Raw response from curl for login: '${response}'"
 
     # Bug修复：移除 callback 相关的 JSONP 解析，直接匹配 result 和 msg
     local login_result=""
@@ -158,9 +124,6 @@ login_func() { # 登录函数
 }
 
 logout_func() { # 注销函数
-    # Bug修复: 移除所有 callback 相关逻辑
-    debug_log "No callback used for logout, as per minimal success curl."
-
     local user_account_id=""
     if [[ "$device" -eq 0 ]]; then user_account_id="0"; elif [[ "$device" -eq 1 ]]; then user_account_id="1"; else user_account_id="0"; fi
 
